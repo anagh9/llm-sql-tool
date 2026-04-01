@@ -33,7 +33,7 @@ def get_specific_schema(tables):
     return schema_info
 
 
-def execute_query(query):
+async def execute_query(query):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     try:

@@ -1,153 +1,233 @@
 import os
-
+import json
+from datetime import datetime
+from dotenv import load_dotenv
 from fastmcp import FastMCP
+from openai import AsyncOpenAI
+
 import database
 import cache
-import json
-from openai import OpenAI, OpenAIError
-from dotenv import load_dotenv
-
 
 load_dotenv()
 
-
-# Create the MCP server
+# MCP Server
 mcp = FastMCP("ProductQueryTool")
 TEMPLATES_FILE = "templates.json"
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+
+client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-def get_relevant_tables(question):
-    """Uses LLM to pick which tables are needed based on the question (Fuzzy Match)."""
-    all_tables = database.get_table_list()
-    prompt = f"Given these tables: {all_tables}, which ones are needed to answer: '{question}'? Return only a comma-separated list of table names."
+# -----------------------------
+# Utility Functions
+# -----------------------------
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    selected = response.choices[0].message.content.strip().split(',')
-    return [s.strip() for s in selected if s.strip() in all_tables]
+def load_templates():
+    if not os.path.exists(TEMPLATES_FILE):
+        return {}
+
+    try:
+        with open(TEMPLATES_FILE, "r") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        return {}
 
 
-def get_template(question):
-    if os.path.exists(TEMPLATES_FILE):
-        with open(TEMPLATES_FILE, 'r') as f:
-            try:
-                data = json.load(f)
-                return data.get(question.lower())
-            except json.JSONDecodeError:
-                return None
-    return None
-
-def save_template(question, sql, raw_data, answer):
-    data = {}
-    if os.path.exists(TEMPLATES_FILE):
-        with open(TEMPLATES_FILE, 'r') as f:
-            data = json.load(f)
-    data[question.lower()] = sql
-
+def save_template(question, sql, raw_data, answer, usage):
+    data = load_templates()
 
     data[question.lower()] = {
         "question": question,
         "query": sql,
         "raw_data": raw_data,
-        "answer": answer
+        "answer": answer,
+        "usage": usage
     }
 
-    with open(TEMPLATES_FILE, 'w') as f:
+    with open(TEMPLATES_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
-def get_sql_from_llm(user_question, schema):
-    prompt = f"""
-    You are a MySQL expert. Given this schema: {schema}
-    Convert the user question into a valid MySQL query.
-    User Question: {user_question}
-    Return ONLY the SQL query. No explanation.
-    """
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system",
-              "content": prompt},
-            {"role": "user", "content": user_question}
-        ],
 
-        temperature=0.2,
-        response_format={"type": "json_object"}
+def get_template(question):
+    data = load_templates()
+    return data.get(question.lower())
+
+
+def calculate_cost(usage):
+    """
+    Approx cost calculation (adjust pricing as per OpenAI pricing)
+    """
+    cost_per_1k_tokens = 0.005  # example pricing
+    return round((usage["total_tokens"] / 1000) * cost_per_1k_tokens, 6)
+
+
+# -----------------------------
+# LLM Functions
+# -----------------------------
+
+async def get_relevant_tables(question):
+    all_tables = database.get_table_list()
+
+    prompt = f"""
+    Given these tables: {all_tables}
+    Which tables are required to answer this question?
+
+    Question: {question}
+
+    Return ONLY a comma-separated list of table names.
+    """
+
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}]
     )
 
-    return response.choices[0].message.content.strip()
+    selected = response.choices[0].message.content.strip().split(",")
 
+    return (
+        [s.strip() for s in selected if s.strip() in all_tables],
+        response.usage
+    )
+
+
+async def generate_sql(question, schema):
+    prompt = f"""
+    You are a MySQL expert.
+
+    Schema:
+    {schema}
+
+    Convert the question into a valid MySQL query.
+
+    Question: {question}
+
+    Return ONLY SQL.
+    """
+
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "Return only raw SQL"},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0
+    )
+
+    sql = response.choices[0].message.content.strip()
+    sql = sql.replace("```sql", "").replace("```", "").strip()
+
+    return sql, response.usage
+
+
+async def generate_final_answer(question, raw_results):
+    prompt = f"""
+    Question: {question}
+    Data: {raw_results}
+
+    Convert this into a clean, human-readable answer.
+    """
+
+    response = await client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    return response.choices[0].message.content.strip(), response.usage
+
+
+# -----------------------------
+# MCP Tools
+# -----------------------------
 
 @mcp.tool()
-def ask_product_data(question: str) -> str:
-    """Ask any question about the product data."""
+async def ask_product_data(question: str) -> str:
+    """
+    Main intelligent query handler using LLM.
+    """
 
+    # 1. Check template cache
     cached_entry = get_template(question)
     if cached_entry:
-        return f"(Cached) {cached_entry['answer']}"
+        usage = cached_entry.get("usage", {})
+        return f"(Cached | Tokens: {usage.get('total_tokens', 0)}) {cached_entry['answer']}"
 
-    relevant_tables = get_relevant_tables(question)
+    # 2. Get relevant tables
+    relevant_tables, table_usage = await get_relevant_tables(question)
     schema = database.get_specific_schema(relevant_tables)
 
     # 3. Generate SQL
-    sql_prompt = f"Schema: {schema}\nQuestion: {question}\nGenerate only the MySQL query."
-    sql_res = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "system", "content": "You output only raw SQL."},
-                  {"role": "user", "content": sql_prompt}]
-    )
+    sql_query, sql_usage = await generate_sql(question, schema)
 
-    sql_query = sql_res.choices[0].message.content.strip().replace(
-        '```sql', '').replace('```', '')
+    # 4. Execute query
+    raw_results = await database.execute_query(sql_query)
 
-    # 4. Save to templates
-    # save_template(question, sql_query)
+    # 5. Generate final answer
+    final_answer, final_usage = await generate_final_answer(question, raw_results)
 
-    # 5. Execute
-    raw_results = database.execute_query(sql_query)
+    # 6. Combine usage
+    total_usage = {
+        "prompt_tokens": (
+            table_usage.prompt_tokens +
+            sql_usage.prompt_tokens +
+            final_usage.prompt_tokens
+        ),
+        "completion_tokens": (
+            table_usage.completion_tokens +
+            sql_usage.completion_tokens +
+            final_usage.completion_tokens
+        ),
+        "total_tokens": (
+            table_usage.total_tokens +
+            sql_usage.total_tokens +
+            final_usage.total_tokens
+        ),
+        "models": ["gpt-4o", "gpt-4o-mini"],
+        "timestamp": datetime.utcnow().isoformat()
+    }
 
-    # 6. Curate Response
-    curate_prompt = f"Question: {question}\nData: {raw_results}\nSummarize this nicely for a human."
-    final_res = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": curate_prompt}]
-    )
-    final_answer = final_res.choices[0].message.content.strip()
+    total_usage["estimated_cost"] = calculate_cost(total_usage)
+
+    # 7. Save template
     save_template(
         question=question,
         sql=sql_query,
         raw_data=raw_results,
-        answer=final_answer
+        answer=final_answer,
+        usage=total_usage
     )
+
     return final_answer
 
 
 @mcp.tool()
 def query_product_data(question: str) -> str:
     """
-    Analyzes a user question, checks the cache, 
-    and queries the MySQL database if needed.
+    Simple fallback query (non-LLM)
     """
-    # 1. Check Redis Cache
+
+    # 1. Redis cache
     cached_res = cache.get_cached_query(question)
     if cached_res:
         return f"(Cached) {cached_res}"
 
-    # 2. Hardcoded logic or LLM-generated SQL (Simplest version)
+    # 2. Basic logic
     if "how many users" in question.lower():
         sql = "SELECT COUNT(*) as count FROM users"
     else:
-        return "I only support user count queries for now."
+        return "Currently supports only user count queries."
 
-    # 3. Execute and Cache
+    # 3. Execute
     result = database.execute_read_query(sql)
-    cache.set_cached_query(question, result)
+    count = result[0].get("count", "No count found")
 
-    return str(result[0].get('count', 'No count found'))
+    # 4. Cache result
+    cache.set_cached_query(question, count)
 
+    return str(count)
+
+
+# -----------------------------
+# Run Server
+# -----------------------------
 
 if __name__ == "__main__":
     mcp.run()
-    # ask_product_data("How many banners are there?")
