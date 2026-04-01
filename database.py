@@ -6,6 +6,46 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def get_table_list():
+    """Returns a simple list of all table names."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SHOW TABLES")
+    tables = [t[0] for t in cursor.fetchall()]
+    conn.close()
+    return tables
+
+
+def get_specific_schema(tables):
+    """Gets schema only for specific tables to save tokens."""
+    if not tables:
+        return "No tables identified."
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    schema_info = ""
+    for table in tables:
+        cursor.execute(f"DESCRIBE {table}")
+        columns = cursor.fetchall()
+        col_desc = ", ".join([f"{c[0]} ({c[1]})" for c in columns])
+        schema_info += f"Table: {table} | Columns: {col_desc}\n"
+    conn.close()
+    return schema_info
+
+
+def execute_query(query):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(query)
+        result = cursor.fetchall()
+        return result
+    except Exception as e:
+        return f"Error: {str(e)}"
+    finally:
+        conn.close()
+
+    
 def get_db_connection():
     """Establishes and returns a connection to the MySQL database."""
     try:
