@@ -563,41 +563,7 @@ CACHE_TTL=3600
 
 To add visual documentation of the web interface:
 
-### Step 1: Capture Screenshot
-
-1. Start the web client: `python3 client.py`
-2. Open http://localhost:5000 in your browser
-3. Test with a query to show the interface in action
-4. Take a screenshot (Ctrl+Shift+S or use your OS screenshot tool)
-
-### Step 2: Save to Project
-
-Save your screenshot as `static/image.png`:
-
-```bash
-# If you have the screenshot saved elsewhere
-cp /path/to/screenshot.png static/image.png
-
-# Or use a tool to capture directly
-gnome-screenshot -f static/image.png  # Linux
-```
-
-### Step 3: Reference in Documentation
-
-The screenshot will be displayed in:
-- README.md (Visual preview)
-- Documentation sites
-- Project README on GitHub
-
-### Recommended Screenshot Areas
-
-1. **Main Chat Interface**: Show message history and input
-2. **Dark Mode**: Toggle comparison
-3. **Statistics Modal**: Show query stats
-4. **Settings Panel**: Show available options
-5. **Welcome Screen**: Explain key features
-
----
+![LLM SQL Web Interface](assets/image.png)
 
 ## 📦 Dependencies
 
@@ -629,7 +595,16 @@ See [requirements.txt](requirements.txt) for all versions.
 
 ## 📝 License
 
-Specify your project license here.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Permissions:
+- ✅ Commercial use
+- ✅ Modification
+- ✅ Distribution
+- ✅ Private use
+
+Conditions:
+- 📋 License and copyright notice required
 
 ## 👥 Contributing
 

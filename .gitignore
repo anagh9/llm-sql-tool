@@ -1,3 +1,186 @@
-venv/*
+# ==================== Virtual Environments ====================
+venv/
+env/
+ENV/
+.venv
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.Python
+
+# ==================== Environment & Secrets ====================
 .env
+.env.local
+.env.*.local
+.env.*.secret
+*.key
+*.pem
+.secrets/
+secrets.json
+
+# ==================== Python ====================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.pyc
+*.pyo
+
+# ==================== Project-Specific ====================
 templates.json
+templates_backup.json
+cache.db
+*.db
+*.sqlite
+*.sqlite3
+
+# ==================== IDE & Editors ====================
+.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+.idea/
+.idea/*
+*.iml
+*.iws
+*.ipr
+.DS_Store
+
+*.sublime-project
+*.sublime-workspace
+
+.vim/
+*~
+*.swp
+*.swo
+*#
+
+# ==================== Testing & Coverage ====================
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+htmlcov/
+.nox/
+.coverage.json
+coverage.txt
+
+# ==================== Logs & Temporary Files ====================
+*.log
+logs/
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==================== OS-Specific ====================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.exe
+*.dll
+*.so
+
+# Linux
+.directory
+
+# ==================== Temporary & Build Files ====================
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+*.swp
+*.swo
+*~
+.tmp/
+temp/
+tmp/
+*.tar.gz
+*.zip
+
+# ==================== Flask & Web ====================
+instance/
+.webassets-cache
+.pytest_cache/
+.env.test
+
+# ==================== Database & Cache ====================
+*.db
+*.sqlite
+*.sqlite3
+redis.rdb
+dump.rdb
+*.rdb
+MySQL.log
+mysql*.log
+
+# ==================== Node/npm (if applicable) ====================
+node_modules/
+package-lock.json
+yarn.lock
+npm-debug.log
+dist/
+
+# ==================== Docker ====================
+.dockerignore
+docker-compose.override.yml
+
+# ==================== Jupyter ====================
+.ipynb_checkpoints
+*.ipynb
+
+# ==================== Documentation ====================
+site/
+docs/_build/
+.sphinx/
+
+# ==================== VS Code Specific ====================
+.vscode-test
+.vscode-test/
+
+# ==================== Keep Important Files ====================
+# !.env.example
+# !requirements.txt
+# !.gitkeep
