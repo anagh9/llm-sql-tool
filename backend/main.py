@@ -22,8 +22,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'query_engine'))
 
 try:
     from query_engine import main as query_engine
+    from query_engine import database
 except ImportError:
     query_engine = None
+    database = None
 
 # Load environment variables
 load_dotenv()
@@ -93,6 +95,20 @@ conversation_history = {}
 query_cache = {}
 
 
+# ==================== Startup Event ====================
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database tables and resources on app startup."""
+    logger.info("Starting up LLM SQL Query API...")
+
+    if database:
+        logger.info("Initializing query history table...")
+        database.initialize_history_table()
+    else:
+        logger.warning("Database module not available")
+
+
 # ==================== Models ====================
 
 class ChatRequest:
@@ -107,26 +123,42 @@ def should_visualize(message: str, answer: str) -> dict:
     """
     Determine if response should include visualization
     Returns dict with visualization config if applicable
+
+    Visualization is recommended for:
+    - Trend analysis (line charts)
+    - Distribution/breakdown (pie charts)
+    - Comparison/analytics (bar charts)
     """
     message_lower = message.lower()
+    answer_lower = answer.lower()
+
+    # Keywords that indicate visualization should be used
     visualization_keywords = [
-        'graph', 'chart', 'plot', 'visualize', 'analytics', 'trend',
+        'graph', 'chart', 'plot', 'visualize', 'visualization', 'analytics', 'trend',
         'monthly', 'weekly', 'daily', 'per month', 'per week', 'per day',
-        'orders', 'sales', 'revenue', 'distribution', 'breakdown',
-        'compare', 'analysis', 'report', 'statistics'
+        'orders', 'sales', 'revenue', 'distribution', 'breakdown', 'segment',
+        'compare', 'comparison', 'analysis', 'report', 'statistics', 'summary',
+        'growth', 'increase', 'decrease', 'change', 'over time', 'time series',
+        'performance', 'metrics', 'data', 'volume', 'count', 'by', 'category',
+        'quarter', 'year', 'annual', 'monthly average', 'top', 'bottom',
+        'rank', 'list', 'show', 'display', 'view', 'percentage', 'share'
     ]
 
     has_viz_keyword = any(
         keyword in message_lower for keyword in visualization_keywords)
 
     if has_viz_keyword:
-        # Detect chart type based on keywords
-        if any(word in message_lower for word in ['pie', 'percentage', 'distribution', 'breakdown']):
-            return {"visualise": True, "chart_type": "pie"}
-        elif any(word in message_lower for word in ['trend', 'over time', 'monthly', 'weekly', 'daily']):
-            return {"visualise": True, "chart_type": "line"}
+        # Pie chart detection - for distribution/breakdown/percentage
+        if any(word in message_lower for word in ['pie', 'percentage', '%', 'distribution', 'breakdown', 'segment', 'share', 'portion']):
+            return {"visualise": True, "chart_type": "pie", "description": "pie"}
+
+        # Line chart detection - for time series and trends
+        elif any(word in message_lower for word in ['trend', 'over time', 'monthly', 'weekly', 'daily', 'quarter', 'year', 'growth', 'forecast', 'time series', 'timeline']):
+            return {"visualise": True, "chart_type": "line", "description": "trend"}
+
+        # Default to bar chart for comparison/analytics
         else:
-            return {"visualise": True, "chart_type": "bar"}
+            return {"visualise": True, "chart_type": "bar", "description": "comparison"}
 
     return {"visualise": False, "chart_type": None}
 
@@ -191,6 +223,9 @@ async def chat(message: str, session_id: str = "default"):
         user_message = message.strip()
         logger.info(f"Processing query: {user_message}")
 
+        # Initialize session
+        chat_session = database.get_or_create_chat_session(session_id)
+
         # Check cache first
         cache_key = user_message.lower()
         if cache_key in query_cache:
@@ -220,7 +255,9 @@ async def chat(message: str, session_id: str = "default"):
 
         try:
             # Call query engine's main function
+            start_time = datetime.utcnow()
             answer = await query_engine.ask_product_data(user_message)
+            end_time = datetime.utcnow()
 
             # Check if response should include visualization
             viz_config = should_visualize(user_message, answer)
@@ -250,23 +287,43 @@ async def chat(message: str, session_id: str = "default"):
                 'chart_data': chart_data
             }
 
-            # Store in conversation history
-            if session_id not in conversation_history:
-                conversation_history[session_id] = []
+            # Save to database history
+            if database:
+                try:
+                    usage = {
+                        "prompt_tokens": 0,  # Replace with actual token usage
+                        "completion_tokens": 0,  # Replace with actual token usage
+                        "total_tokens": 0,  # Replace with actual token usage
+                        "model": "gpt-4o",  # Replace with actual model name
+                        "temperature": 0.7,  # Replace with actual temperature
+                        "top_p": 1.0  # Replace with actual top_p
+                    }
 
-            conversation_history[session_id].append({
-                'role': 'user',
-                'content': user_message,
-                'timestamp': datetime.now().isoformat()
-            })
-            conversation_history[session_id].append({
-                'role': 'assistant',
-                'content': answer,
-                'timestamp': datetime.now().isoformat(),
-                'visualise': viz_config["visualise"],
-                'chart_type': viz_config["chart_type"],
-                'chart_data': chart_data
-            })
+                    database.save_chat_history(
+                        session_id=session_id,
+                        user_question=user_message,
+                        gpt_response=answer,
+                        sql_query=query_engine.get_last_sql_query(),
+                        chart_type=viz_config.get("chart_type"),
+                        visualise=viz_config.get("visualise", False),
+                        cached=False,
+                        source="query_engine",
+                        total_tokens=usage["total_tokens"],
+                        prompt_tokens=usage["prompt_tokens"],
+                        completion_tokens=usage["completion_tokens"],
+                        model=usage["model"],
+                        temperature=usage["temperature"],
+                        top_p=usage["top_p"],
+                        database_results=raw_results if raw_results else None,
+                        sql_execution_time=(
+                            end_time - start_time).total_seconds(),
+                        error_message=None,
+                        execution_status="success",
+                        metadata={}
+                    )
+                except Exception as db_err:
+                    logger.warning(
+                        f"Failed to save query to history: {str(db_err)}")
 
             logger.info(f"Successfully processed query")
 
@@ -281,16 +338,17 @@ async def chat(message: str, session_id: str = "default"):
             logger.error(f"Error processing query: {str(e)}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Error processing query: {str(e)}"
+                detail="Internal server error"
             )
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
+    except HTTPException as http_exc:
+        raise http_exc
+
+    except Exception as exc:
+        logger.error(f"Unexpected error: {str(exc)}")
         raise HTTPException(
             status_code=500,
-            detail="Internal server error"
+            detail="Unexpected server error"
         )
 
 
@@ -402,6 +460,218 @@ async def get_templates():
         raise HTTPException(
             status_code=500,
             detail="Error fetching templates"
+        )
+
+
+# ==================== Visualization Endpoints ====================
+
+@app.post("/api/visualize")
+async def visualize_data(sql_query: str, chart_type: str = "line"):
+    """
+    Generate chart data from a SQL query result.
+    Useful for creating custom visualizations from raw SQL queries.
+
+    Args:
+        sql_query: SQL query to execute
+        chart_type: Type of chart ('line', 'bar', 'pie')
+
+    Returns:
+        Chart data in chart.js format
+    """
+    try:
+        if not sql_query or not sql_query.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="SQL query cannot be empty"
+            )
+
+        if chart_type not in ['line', 'bar', 'pie']:
+            raise HTTPException(
+                status_code=400,
+                detail="Chart type must be 'line', 'bar', or 'pie'"
+            )
+
+        logger.info(
+            f"Generating visualization for query with chart type: {chart_type}")
+
+        # Execute the query
+        try:
+            raw_results = await query_engine.database.execute_query(sql_query)
+        except Exception as db_err:
+            logger.error(f"Database query error: {str(db_err)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to execute query: {str(db_err)}"
+            )
+
+        if not raw_results:
+            raise HTTPException(
+                status_code=400,
+                detail="Query returned no results"
+            )
+
+        # Format chart data
+        try:
+            chart_data = query_engine.format_chart_data(
+                raw_results, chart_type=chart_type)
+        except Exception as chart_err:
+            logger.error(f"Chart formatting error: {str(chart_err)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to format chart data: {str(chart_err)}"
+            )
+
+        return {
+            "success": True,
+            "chart_type": chart_type,
+            "chart_data": chart_data,
+            "data_points": len(raw_results),
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in visualization: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error generating visualization"
+        )
+
+
+# ==================== History Endpoints ====================
+
+@app.get("/api/history/session")
+async def get_session_history_endpoint(session_id: str = "default", limit: int = 50):
+    """
+    Get query history for a specific session.
+
+    Args:
+        session_id: Session identifier
+        limit: Maximum number of records to return (default 50)
+
+    Returns:
+        List of history records sorted by creation time (newest first)
+    """
+    try:
+        if not database:
+            raise HTTPException(
+                status_code=503,
+                detail="Database module not available"
+            )
+
+        history = database.get_session_history(session_id, limit)
+        return {
+            "success": True,
+            "session_id": session_id,
+            "history": history,
+            "count": len(history)
+        }
+    except Exception as e:
+        logger.error(f"Error fetching session history: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error fetching session history"
+        )
+
+
+@app.get("/api/history/all")
+async def get_all_history_endpoint(limit: int = 100):
+    """
+    Get all query history across all sessions.
+
+    Args:
+        limit: Maximum number of records to return (default 100)
+
+    Returns:
+        List of all history records sorted by creation time (newest first)
+    """
+    try:
+        if not database:
+            raise HTTPException(
+                status_code=503,
+                detail="Database module not available"
+            )
+
+        history = database.get_all_history(limit)
+        return {
+            "success": True,
+            "history": history,
+            "count": len(history)
+        }
+    except Exception as e:
+        logger.error(f"Error fetching all history: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error fetching all history"
+        )
+
+
+@app.get("/api/history/stats")
+async def get_history_stats_endpoint():
+    """
+    Get statistics about query history.
+
+    Returns:
+        Dictionary with history statistics including total queries, cached queries, etc.
+    """
+    try:
+        if not database:
+            raise HTTPException(
+                status_code=503,
+                detail="Database module not available"
+            )
+
+        stats = database.get_history_stats()
+        return {
+            "success": True,
+            "stats": stats,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error fetching history stats: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error fetching history stats"
+        )
+
+
+@app.delete("/api/history/session")
+async def delete_session_history_endpoint(session_id: str = "default"):
+    """
+    Delete all history for a specific session.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        Success status
+    """
+    try:
+        if not database:
+            raise HTTPException(
+                status_code=503,
+                detail="Database module not available"
+            )
+
+        success = database.delete_session_history(session_id)
+        if success:
+            return {
+                "success": True,
+                "message": f"Deleted history for session {session_id}"
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to delete session history"
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting session history: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error deleting session history"
         )
 
 
