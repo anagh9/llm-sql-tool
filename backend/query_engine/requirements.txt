@@ -1,0 +1,7 @@
+# MCP Server Dependencies
+mcp                     # Model Context Protocol SDK
+fastmcp                 # FastMCP server framework
+mysql-connector-python  # MySQL driver
+redis                   # Redis client
+python-dotenv           # For environment variables
+openai                  # OpenAI API client
