@@ -1,6 +1,433 @@
 # LLM SQL Query Tool
 
-A sophisticated AI-powered system that converts natural language questions into SQL queries and executes them against a MySQL database. Built with OpenAI's GPT-4, FastMCP protocol, and intelligent caching mechanisms.
+Convert natural language questions into SQL queries using AI.
+
+## Tech Stack
+
+- **Backend**: FastAPI + Python
+- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS
+- **Database**: MySQL + Redis Cache
+- **AI**: OpenAI GPT-4
+
+## Installation
+
+### Prerequisites
+
+- Python 3.8+
+- Node.js 18+
+- MySQL running
+- Redis running
+- OpenAI API key
+
+### Backend Setup
+
+```bash
+cd backend
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+pip install -r query_engine/requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your credentials (OpenAI key, DB credentials, Redis settings)
+
+# Run backend
+python main.py
+```
+
+Backend runs on: `http://localhost:8000`
+
+### Frontend Setup
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Configure environment
+cp .env.local.example .env.local
+# Edit .env.local with your API URL (NEXT_PUBLIC_API_URL=http://localhost:8000)
+
+# Run development server
+npm run dev
+```
+
+Frontend runs on: `http://localhost:3000`
+
+## Project Structure
+
+```
+llm_sql/
+├── backend/
+│   ├── main.py              (FastAPI server)
+│   ├── requirements.txt
+│   ├── .env.example
+│   └── query_engine/        (SQL query generator)
+│
+├── frontend/
+│   ├── app/                 (Next.js pages)
+│   ├── components/          (React components)
+│   ├── lib/api.ts          (API client)
+│   ├── package.json
+│   └── .env.local.example
+│
+└── assets/
+```
+
+## Quick Start
+
+1. **Terminal 1** - Start Backend:
+   ```bash
+   cd backend
+   source venv/bin/activate
+   python main.py
+   ```
+
+2. **Terminal 2** - Start Frontend:
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+
+3. **Browser** - Open: `http://localhost:3000`
+
+## Configuration Files
+
+- `backend/.env.example` - Backend configuration template
+- `frontend/.env.local.example` - Frontend configuration template
+
+Copy these files and fill in your credentials:
+- OpenAI API key
+- MySQL connection details
+- Redis connection details
+- API URL (frontend only)
+
+---
+
+## ⚡ Quick Start (5 Minutes)
+
+### 1️⃣ Backend Setup (Terminal 1)
+
+```bash
+cd backend
+
+# Setup
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+pip install -r query_engine/requirements.txt
+
+# Configure
+cp .env.example .env
+# Edit .env with your credentials
+
+# Run
+python main.py
+```
+
+**Backend ready at:** `http://localhost:8000`  
+**API docs at:** `http://localhost:8000/docs`
+
+### 2️⃣ Frontend Setup (Terminal 2)
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Configure
+cp .env.local.example .env.local
+# Update NEXT_PUBLIC_API_URL if needed (default: http://localhost:8000)
+
+# Run
+npm run dev
+```
+
+**Frontend ready at:** `http://localhost:3000`
+
+### 3️⃣ Start Using!
+
+Open your browser to: **`http://localhost:3000`**
+
+---
+
+## 🔄 Architecture Overview
+
+```
+Browser (Next.js)                    http://localhost:3000
+    ↓ HTTP + JSON
+    ↓ TypeScript API client
+    ↓
+FastAPI Backend                      http://localhost:8000
+    ├─ REST API Endpoints
+    ├─ Session Management
+    └─ Query Routing
+    ↓
+Query Engine (Python + MCP)
+    ├─ OpenAI GPT-4 Integration
+    ├─ MySQL Database Access
+    └─ Redis Caching
+```
+
+---
+
+## ✨ Key Features
+
+✅ **Natural Language to SQL**
+- Convert English questions to optimized SQL queries
+- Uses OpenAI GPT-4 for intelligent query generation
+
+✅ **Intelligent Caching**
+- Redis-based caching for repeated queries
+- Template management for common questions
+- Fast retrieval of frequently asked questions
+
+✅ **Modern UI**
+- Beautiful, responsive chat interface
+- Built with Next.js + TypeScript + Tailwind CSS
+- Mobile-friendly design
+- Dark mode ready (extensible)
+
+✅ **Type-Safe Development**
+- Full TypeScript support frontend & backend
+- API response types
+- Component prop types
+- Better IDE support
+
+✅ **Session Management**
+- Conversation history per session
+- Multiple independent sessions
+- Clear history option
+
+✅ **Statistics & Analytics**
+- View query statistics
+- Track cached queries
+- Monitor usage patterns
+
+---
+
+## 📚 API Endpoints
+
+### Health
+- `GET /health` - Server health check
+
+### Chat
+- `POST /api/chat` - Send query
+  ```
+  ?message=How many users?&session_id=default
+  ```
+
+### History
+- `GET /api/history` - Get conversation history
+- `POST /api/clear-history` - Clear history
+
+### Statistics
+- `GET /api/stats` - Get usage statistics
+- `GET /api/suggestions` - Get query suggestions
+- `GET /api/templates` - Get cached queries
+
+---
+
+## 🔧 Technology Stack
+
+### Backend
+- **FastAPI** - Modern Python web framework
+- **Uvicorn** - ASGI server
+- **MCP (Model Context Protocol)** - LLM integration
+- **OpenAI** - GPT-4 API
+- **MySQL** - Database
+- **Redis** - Caching
+- **Python 3.8+**
+
+### Frontend
+- **Next.js 14** - React framework
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Styling
+- **React Icons** - Icon library
+- **Axios** - HTTP client
+- **Node.js 18+**
+
+---
+
+## 🔐 Environment Configuration
+
+### Backend (.env)
+```env
+API_HOST=0.0.0.0
+API_PORT=8000
+DEBUG=False
+
+OPENAI_API_KEY=sk-...
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=password
+DB_NAME=database
+REDIS_HOST=localhost
+REDIS_PORT=6379
+```
+
+### Frontend (.env.local)
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+---
+
+## 📖 Documentation
+
+- **[backend/README.md](backend/README.md)** - Backend API setup & details
+- **[frontend/README.md](frontend/README.md)** - Frontend setup & customization
+- **[backend/query_engine/README.md](backend/query_engine/README.md)** - Query engine details
+
+---
+
+## 🚀 Development Commands
+
+### Backend
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt -r query_engine/requirements.txt
+python main.py              # Start server
+```
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev               # Development
+npm run build            # Production build
+npm run start            # Production server
+npm run type-check       # TypeScript check
+```
+
+---
+
+## 🐳 Docker Deployment
+
+### Backend Dockerfile
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt query_engine/requirements.txt ./
+RUN pip install -r requirements.txt -r query_engine/requirements.txt
+COPY . .
+CMD ["python", "main.py"]
+```
+
+### Frontend Dockerfile
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+---
+
+## 🆘 Troubleshooting
+
+### Backend
+**Error: "Connection refused" (MySQL/Redis)**
+```bash
+# Check services running
+mysql -u root -p -e "SELECT 1"
+redis-cli ping
+```
+
+**Error: "Module not found"**
+```bash
+pip install -r requirements.txt -r query_engine/requirements.txt
+```
+
+### Frontend
+**Error: "Cannot find module"**
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
+**Error: API calls failing**
+- Check `NEXT_PUBLIC_API_URL` in `.env.local`
+- Verify backend is running
+- Check browser console for CORS errors
+
+---
+
+## 🚢 Production Deployment
+
+### Backend (with Gunicorn)
+```bash
+pip install gunicorn
+gunicorn -w 4 -b 0.0.0.0:8000 main:app
+```
+
+### Frontend (Vercel)
+```bash
+vercel deploy
+```
+
+### Environment for Production
+```env
+# Backend
+API_PORT=8000
+DEBUG=False
+OPENAI_API_KEY=sk-prod-...
+
+# Frontend
+NEXT_PUBLIC_API_URL=https://api.yourdomain.com
+```
+
+---
+
+## 📊 Performance Options
+
+- Enable Redis caching (recommended)
+- Use production ASGI server (Gunicorn/Gunicorn-gevent)
+- Enable Next.js output caching
+- Use CDN for static files
+- Database connection pooling
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! Please:
+1. Create a new branch
+2. Make your changes
+3. Test thoroughly
+4. Submit a pull request
+
+---
+
+## 📝 License
+
+See [LICENSE](LICENSE) file
+
+---
+
+## 🎉 Ready to Get Started?
+
+1. **Backend:** `cd backend && python main.py`
+2. **Frontend:** `cd frontend && npm run dev`
+3. **Browser:** `http://localhost:3000`
+
+**Enjoy natural language querying!** 🚀
+
+---
 
 ## 🎯 Overview
 
@@ -626,6 +1053,257 @@ For issues or questions:
 
 ---
 
-**Last Updated**: April 1, 2026  
-**Version**: 1.0  
-**Status**: Production Ready
+## 💬 Chat Examples & Prompts
+
+Here are examples of queries you can ask in the chat interface. The system will automatically detect if a visualization is needed and display charts where appropriate.
+
+### 📊 Analytics & Visualizations (With Charts)
+
+These queries will automatically generate charts for data visualization:
+
+#### 1. **Monthly Order Trends** (Line Chart)
+```
+Show me orders every month for the last year
+```
+**Response**: Line chart showing order count by month + text analysis
+- **Chart Type**: Line Chart
+- **Use Case**: Track trends over time, identify seasonal patterns
+- **Visualization**: True, chart_type: "line"
+
+#### 2. **Order Distribution by Category** (Pie Chart)
+```
+Show order distribution by category
+```
+**Response**: Pie chart breaking down orders by product category
+- **Chart Type**: Pie Chart
+- **Use Case**: Understand composition, see category breakdown
+- **Visualization**: True, chart_type: "pie"
+
+#### 3. **Top Products Performance** (Bar Chart)
+```
+Show me the top 5 products ordered most
+```
+**Response**: Bar chart comparing product sales
+- **Chart Type**: Bar Chart
+- **Use Case**: Identify best-selling products, benchmark performance
+- **Visualization**: True, chart_type: "bar"
+
+#### 4. **Revenue Analysis** (Line Chart)
+```
+Plot total revenue per month with trends
+```
+**Response**: Line chart showing revenue progression
+- **Chart Type**: Line Chart
+- **Use Case**: Monitor revenue performance, forecast trends
+- **Visualization**: True, chart_type: "line"
+
+#### 5. **Sales by Product Category** (Pie Chart)
+```
+Break down sales percentage by product type
+```
+**Response**: Pie chart with percentage distribution
+- **Chart Type**: Pie Chart
+- **Use Case**: Understand market share, optimize inventory
+- **Visualization**: True, chart_type: "pie"
+
+#### 6. **Weekly Sales Comparison** (Bar Chart)
+```
+Compare sales for each week this month
+```
+**Response**: Bar chart with weekly performance
+- **Chart Type**: Bar Chart
+- **Use Case**: Weekly performance tracking, consistency analysis
+- **Visualization**: True, chart_type: "bar"
+
+---
+
+### 📈 Statistics & Metrics (Text Responses)
+
+These queries return textual analysis without charts:
+
+#### 1. **Total Order Count**
+```
+How many orders are there in total?
+```
+**Response**: "There are 15,847 total orders in the system..."
+
+#### 2. **User Statistics**
+```
+How many users are registered?
+```
+**Response**: "You have 2,341 registered users..."
+
+#### 3. **Average Order Value**
+```
+What is the average order value?
+```
+**Response**: "The average order value is $125.43..."
+
+#### 4. **Order Status Summary**
+```
+How many orders are in processing status?
+```
+**Response**: "There are 342 orders currently in processing status..."
+
+#### 5. **Product Performance**
+```
+Which product has been ordered the most?
+```
+**Response**: "Product 'USB-C Cable' has been ordered 1,247 times..."
+
+#### 6. **Revenue Metrics**
+```
+What is the total revenue from all orders?
+```
+**Response**: "Total revenue is $1,987,654.32..."
+
+#### 7. **Customer Analysis**
+```
+How many orders does the average customer place?
+```
+**Response**: "The average customer places 6.7 orders..."
+
+#### 8. **Refund Analysis**
+```
+Calculate the total refunded amount from refunds
+```
+**Response**: "Total refunded amount is $87,932.45..."
+
+---
+
+### 🔍 Detailed Queries
+
+#### 1. **Find Specific Products**
+```
+Find 5 most recent products with product_id and title
+```
+**Response**: List of 5 recent products with details
+
+#### 2. **Customer Orders**
+```
+List orders from customer with ID 123
+```
+**Response**: Complete order history for that customer
+
+#### 3. **Date Range Analysis**
+```
+How many orders were placed in March?
+```
+**Response**: Order count for March with breakdown
+
+#### 4. **Price Analysis**
+```
+Find products priced between $50 and $100
+```
+**Response**: List of products in that price range with count
+
+#### 5. **Status Breakdown**
+```
+Count orders by status
+```
+**Response**: Breakdown of orders across all statuses
+
+---
+
+### 🎯 Real Business Use Cases
+
+#### Sales Queries
+```
+"What was our best selling month?"
+"Compare last month's sales to this month"
+"Show me revenue trend for the last quarter"
+"Which customers spent the most?"
+```
+
+#### Inventory & Product Queries
+```
+"List our top 10 best sellers"
+"Show products with low stock"
+"Which products have never been ordered?"
+"Compare sales performance by product category"
+```
+
+#### Customer Queries
+```
+"How many new customers this month?"
+"What is customer retention rate?"
+"Find customers who haven't ordered in 90 days"
+"List VIP customers (high spending)"
+```
+
+#### Performance Analytics
+```
+"What is the average order processing time?"
+"Show order completion rate by status"
+"Compare Q1 vs Q2 performance"
+"Analyze refund rate trends"
+```
+
+---
+
+### 💡 Tips for Best Results
+
+1. **Be Specific**: "Top 5 products" works better than "products"
+2. **Use Time References**: "last month", "this quarter", "past 30 days"
+3. **Request Visualizations**: Say "show me a chart of..." for automatic visualization
+4. **Include Metrics**: "revenue", "orders", "sales", "customers"
+5. **Natural Language**: Write as you would speak to a colleague
+
+---
+
+### 🔄 Example API Responses
+
+#### **Response with Visualization**
+```json
+{
+  "success": true,
+  "message": "Show me orders every month",
+  "answer": "Based on database analysis, order volume shows steady growth with seasonal peaks in Q4...",
+  "cached": false,
+  "timestamp": "2026-04-02T12:30:00.000000",
+  "source": "llm",
+  "visualise": true,
+  "chart_type": "line",
+  "chart_data": {
+    "labels": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+    "datasets": [{
+      "label": "Orders",
+      "data": [1250, 1340, 1180, 1450, 1620, 1890],
+      "borderColor": "rgb(75, 192, 192)",
+      "backgroundColor": "rgba(75, 192, 192, 0.1)"
+    }]
+  }
+}
+```
+
+#### **Response without Visualization**
+```json
+{
+  "success": true,
+  "message": "How many orders are there?",
+  "answer": "There are 15,847 total orders in the system. Of these, 12,450 are completed, 2,150 are pending, and 1,247 are cancelled.",
+  "cached": false,
+  "timestamp": "2026-04-02T12:32:00.000000",
+  "source": "llm",
+  "visualise": false
+}
+```
+
+---
+
+### 🚀 Start Asking Questions!
+
+1. Open [http://localhost:3000](http://localhost:3000)
+2. Type any question about your database
+3. Sit back and watch AI-powered answers with charts appear instantly!
+
+**Example First Question:**
+```
+Show me orders every month for the last year
+```
+
+---
+
+**Last Updated**: April 2, 2026  
+**Version**: 1.1  
+**Status**: Production Ready with Visualization Support

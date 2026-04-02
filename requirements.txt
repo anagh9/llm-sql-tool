@@ -1,8 +1,0 @@
-mcp                     # Official Model Context Protocol SDK
-mysql-connector-python  # MySQL driver
-redis                   # Redis client
-python-dotenv           # For environment variables
-openai                  # OpenAI API client
-fastmcp                 # FastMCP server framework
-Flask                   # Web framework
-Flask-CORS              # CORS support for Flask
