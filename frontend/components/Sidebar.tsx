@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FiMenu, FiX, FiSettings, FiBarChart2 } from 'react-icons/fi'
+import { FiMenu, FiX, FiSettings, FiBarChart2, FiClock } from 'react-icons/fi'
 import { getSuggestions, getStats, clearHistory } from '@/lib/api'
 
-export function Sidebar({ sessionId, onTemplateClick }: { sessionId: string; onTemplateClick?: (template: string) => void }) {
+export function Sidebar({ sessionId, onTemplateClick, onHistoryClick }: { sessionId: string; onTemplateClick?: (template: string) => void; onHistoryClick?: () => void }) {
     const [isOpen, setIsOpen] = useState(false)
     const [suggestions, setSuggestions] = useState<string[]>([])
     const [stats, setStats] = useState<any>(null)
@@ -144,6 +144,16 @@ export function Sidebar({ sessionId, onTemplateClick }: { sessionId: string; onT
 
                 {/* Actions */}
                 <div className="space-y-2">
+                    <button
+                        onClick={() => {
+                            onHistoryClick?.()
+                            setIsOpen(false)
+                        }}
+                        className="w-full px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                        <FiClock size={16} />
+                        View History
+                    </button>
                     <button
                         onClick={handleClearHistory}
                         className="w-full px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
