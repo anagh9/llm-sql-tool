@@ -199,6 +199,13 @@ def format_chart_data(raw_results: list, chart_type: str = "line") -> dict:
     Convert raw query results into chart.js compatible format.
     Handles various data structures and converts them to proper chart format.
 
+    Supports:
+    - Single column (values only)
+    - Two columns (labels + values)
+    - Multiple columns (labels + multiple datasets)
+    - Decimal to float conversion
+    - Multiple color palettes based on chart type
+
     Returns:
         {
             "labels": [...],
@@ -220,12 +227,50 @@ def format_chart_data(raw_results: list, chart_type: str = "line") -> dict:
         return {"labels": [], "datasets": []}
 
     keys = list(first_row.keys())
+    if not keys:
+        return {"labels": [], "datasets": []}
+
+    # Color palettes for different chart types
+    line_colors = [
+        {"border": "rgb(75, 192, 192)", "bg": "rgba(75, 192, 192, 0.1)"},
+        {"border": "rgb(201, 103, 146)", "bg": "rgba(201, 103, 146, 0.1)"},
+        {"border": "rgb(255, 159, 64)", "bg": "rgba(255, 159, 64, 0.1)"},
+        {"border": "rgb(100, 150, 200)", "bg": "rgba(100, 150, 200, 0.1)"},
+        {"border": "rgb(255, 99, 132)", "bg": "rgba(255, 99, 132, 0.1)"},
+    ]
+
+    pie_colors = [
+        "rgba(255, 99, 132, 0.8)",
+        "rgba(54, 162, 235, 0.8)",
+        "rgba(255, 206, 86, 0.8)",
+        "rgba(75, 192, 192, 0.8)",
+        "rgba(153, 102, 255, 0.8)",
+        "rgba(255, 159, 64, 0.8)",
+        "rgba(205, 130, 180, 0.8)",
+        "rgba(135, 206, 250, 0.8)",
+        "rgba(255, 165, 0, 0.8)",
+        "rgba(144, 238, 144, 0.8)",
+    ]
+
+    def convert_value(value):
+        """Convert various types to float for chart data"""
+        if isinstance(value, Decimal):
+            return float(value)
+        elif isinstance(value, (int, float)):
+            return float(value)
+        elif isinstance(value, str):
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                return 0
+        else:
+            return 0
 
     # Handle different data structures
     if len(keys) == 1:
         # Single column - treat as values with index as labels
         key = keys[0]
-        values = [row[key] for row in raw_results]
+        values = [convert_value(row.get(key, 0)) for row in raw_results]
         labels = [f"Item {i+1}" for i in range(len(values))]
 
         return {
@@ -234,7 +279,9 @@ def format_chart_data(raw_results: list, chart_type: str = "line") -> dict:
                 "label": key,
                 "data": values,
                 "borderColor": "rgb(75, 192, 192)",
-                "backgroundColor": "rgba(75, 192, 192, 0.1)"
+                "backgroundColor": "rgba(75, 192, 192, 0.1)" if chart_type != "pie" else "rgba(75, 192, 192, 0.8)",
+                "tension": 0.4 if chart_type == "line" else None,
+                "fill": True if chart_type == "line" else None
             }]
         }
 
@@ -243,67 +290,98 @@ def format_chart_data(raw_results: list, chart_type: str = "line") -> dict:
         label_key = keys[0]
         value_key = keys[1]
 
-        labels = [str(row[label_key]) for row in raw_results]
-        values = [float(row[value_key]) if isinstance(row[value_key], (int, float, Decimal)) else 0
-                  for row in raw_results]
+        labels = [str(row.get(label_key, f"Item {i+1}"))
+                  for i, row in enumerate(raw_results)]
+        values = [convert_value(row.get(value_key, 0)) for row in raw_results]
 
-        # Choose colors based on chart type
+        # Choose colors and styling based on chart type
         if chart_type == "pie":
-            colors = [
-                "rgba(255, 99, 132, 0.8)",
-                "rgba(54, 162, 235, 0.8)",
-                "rgba(255, 206, 86, 0.8)",
-                "rgba(75, 192, 192, 0.8)",
-                "rgba(153, 102, 255, 0.8)",
-                "rgba(255, 159, 64, 0.8)",
-            ]
-            bg_colors = [colors[i % len(colors)] for i in range(len(values))]
-
+            bg_colors = [pie_colors[i % len(pie_colors)]
+                         for i in range(len(values))]
             return {
                 "labels": labels,
                 "datasets": [{
                     "label": value_key,
                     "data": values,
-                    "backgroundColor": bg_colors
+                    "backgroundColor": bg_colors,
+                    "borderColor": "#fff",
+                    "borderWidth": 2
                 }]
             }
-        else:  # line or bar
+        elif chart_type == "line":
+            color = line_colors[0]
             return {
                 "labels": labels,
                 "datasets": [{
                     "label": value_key,
                     "data": values,
-                    "borderColor": "rgb(75, 192, 192)",
-                    "backgroundColor": "rgba(75, 192, 192, 0.1)"
+                    "borderColor": color["border"],
+                    "backgroundColor": color["bg"],
+                    "tension": 0.4,
+                    "fill": True,
+                    "pointRadius": 5,
+                    "pointHoverRadius": 7,
+                    "pointBackgroundColor": color["border"]
+                }]
+            }
+        else:  # bar
+            color = line_colors[0]
+            return {
+                "labels": labels,
+                "datasets": [{
+                    "label": value_key,
+                    "data": values,
+                    "borderColor": color["border"],
+                    "backgroundColor": color["bg"],
+                    "borderWidth": 2,
+                    "borderRadius": 4
                 }]
             }
 
     else:
         # Multiple columns - use first as labels, others as datasets
         label_key = keys[0]
-        labels = [str(row[label_key]) for row in raw_results]
+        labels = [str(row.get(label_key, f"Item {i+1}"))
+                  for i, row in enumerate(raw_results)]
 
         datasets = []
         for i, key in enumerate(keys[1:]):
-            values = [float(row[key]) if isinstance(row[key], (int, float, Decimal)) else 0
-                      for row in raw_results]
+            values = [convert_value(row.get(key, 0)) for row in raw_results]
 
-            colors = [
-                {"border": "rgb(75, 192, 192)",
-                 "bg": "rgba(75, 192, 192, 0.1)"},
-                {"border": "rgb(201, 103, 146)",
-                 "bg": "rgba(201, 103, 146, 0.1)"},
-                {"border": "rgb(255, 159, 64)",
-                 "bg": "rgba(255, 159, 64, 0.1)"},
-            ]
-            color = colors[i % len(colors)]
+            if chart_type == "pie" and len(keys[1:]) == 1:
+                # Pie with multiple data points
+                bg_colors = [pie_colors[j % len(pie_colors)]
+                             for j in range(len(values))]
+                datasets.append({
+                    "label": key,
+                    "data": values,
+                    "backgroundColor": bg_colors,
+                    "borderColor": "#fff",
+                    "borderWidth": 2
+                })
+            else:
+                # Line or bar with multiple datasets
+                color = line_colors[i % len(line_colors)]
+                dataset_config = {
+                    "label": key,
+                    "data": values,
+                    "borderColor": color["border"],
+                    "backgroundColor": color["bg"],
+                    "borderWidth": 2,
+                }
 
-            datasets.append({
-                "label": key,
-                "data": values,
-                "borderColor": color["border"],
-                "backgroundColor": color["bg"]
-            })
+                if chart_type == "line":
+                    dataset_config.update({
+                        "tension": 0.4,
+                        "fill": False,
+                        "pointRadius": 4,
+                        "pointHoverRadius": 6,
+                        "pointBackgroundColor": color["border"]
+                    })
+                else:  # bar
+                    dataset_config["borderRadius"] = 4
+
+                datasets.append(dataset_config)
 
         return {
             "labels": labels,

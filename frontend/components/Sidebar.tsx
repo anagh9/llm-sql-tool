@@ -4,11 +4,25 @@ import { useState, useEffect } from 'react'
 import { FiMenu, FiX, FiSettings, FiBarChart2 } from 'react-icons/fi'
 import { getSuggestions, getStats, clearHistory } from '@/lib/api'
 
-export function Sidebar({ sessionId }: { sessionId: string }) {
+export function Sidebar({ sessionId, onTemplateClick }: { sessionId: string; onTemplateClick?: (template: string) => void }) {
     const [isOpen, setIsOpen] = useState(false)
     const [suggestions, setSuggestions] = useState<string[]>([])
     const [stats, setStats] = useState<any>(null)
     const [loading, setLoading] = useState(true)
+
+    // Graph-related templates
+    const graphTemplates = [
+        'Show me orders every month',
+        'Display revenue trend by quarter',
+        'Compare sales across regions with chart',
+        'What percentage of orders are completed vs pending?',
+        'Show top 10 products by volume',
+        'Average order value by category chart',
+        'Create a graph of daily transactions',
+        'Show customer distribution by region as pie chart',
+        'What is the monthly growth rate trend?',
+        'Display inventory levels over time'
+    ]
 
     useEffect(() => {
         loadSuggestions()
@@ -18,9 +32,13 @@ export function Sidebar({ sessionId }: { sessionId: string }) {
     const loadSuggestions = async () => {
         try {
             const response = await getSuggestions()
-            setSuggestions(response.suggestions)
+            // Combine API suggestions with graph templates
+            const combined = [...graphTemplates, ...response.suggestions]
+            setSuggestions(combined.slice(0, 10)) // Limit to 10 templates
         } catch (error) {
             console.error('Error loading suggestions:', error)
+            // Use graph templates as fallback
+            setSuggestions(graphTemplates.slice(0, 10))
         }
     }
 
@@ -83,10 +101,14 @@ export function Sidebar({ sessionId }: { sessionId: string }) {
                         {suggestions.map((suggestion, index) => (
                             <button
                                 key={index}
-                                onClick={() => setIsOpen(false)}
-                                className="w-full text-left text-sm px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 transition-colors truncate"
+                                onClick={() => {
+                                    onTemplateClick?.(suggestion)
+                                    setIsOpen(false)
+                                }}
+                                className="w-full text-left text-sm px-3 py-2 rounded-lg bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 text-gray-700 transition-all duration-200 truncate border border-blue-100 hover:border-blue-300"
                                 title={suggestion}
                             >
+                                <span className="text-blue-600 mr-2">📊</span>
                                 {suggestion}
                             </button>
                         ))}

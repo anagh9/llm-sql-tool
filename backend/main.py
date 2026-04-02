@@ -107,26 +107,42 @@ def should_visualize(message: str, answer: str) -> dict:
     """
     Determine if response should include visualization
     Returns dict with visualization config if applicable
+
+    Visualization is recommended for:
+    - Trend analysis (line charts)
+    - Distribution/breakdown (pie charts)
+    - Comparison/analytics (bar charts)
     """
     message_lower = message.lower()
+    answer_lower = answer.lower()
+
+    # Keywords that indicate visualization should be used
     visualization_keywords = [
-        'graph', 'chart', 'plot', 'visualize', 'analytics', 'trend',
+        'graph', 'chart', 'plot', 'visualize', 'visualization', 'analytics', 'trend',
         'monthly', 'weekly', 'daily', 'per month', 'per week', 'per day',
-        'orders', 'sales', 'revenue', 'distribution', 'breakdown',
-        'compare', 'analysis', 'report', 'statistics'
+        'orders', 'sales', 'revenue', 'distribution', 'breakdown', 'segment',
+        'compare', 'comparison', 'analysis', 'report', 'statistics', 'summary',
+        'growth', 'increase', 'decrease', 'change', 'over time', 'time series',
+        'performance', 'metrics', 'data', 'volume', 'count', 'by', 'category',
+        'quarter', 'year', 'annual', 'monthly average', 'top', 'bottom',
+        'rank', 'list', 'show', 'display', 'view', 'percentage', 'share'
     ]
 
     has_viz_keyword = any(
         keyword in message_lower for keyword in visualization_keywords)
 
     if has_viz_keyword:
-        # Detect chart type based on keywords
-        if any(word in message_lower for word in ['pie', 'percentage', 'distribution', 'breakdown']):
-            return {"visualise": True, "chart_type": "pie"}
-        elif any(word in message_lower for word in ['trend', 'over time', 'monthly', 'weekly', 'daily']):
-            return {"visualise": True, "chart_type": "line"}
+        # Pie chart detection - for distribution/breakdown/percentage
+        if any(word in message_lower for word in ['pie', 'percentage', '%', 'distribution', 'breakdown', 'segment', 'share', 'portion']):
+            return {"visualise": True, "chart_type": "pie", "description": "pie"}
+
+        # Line chart detection - for time series and trends
+        elif any(word in message_lower for word in ['trend', 'over time', 'monthly', 'weekly', 'daily', 'quarter', 'year', 'growth', 'forecast', 'time series', 'timeline']):
+            return {"visualise": True, "chart_type": "line", "description": "trend"}
+
+        # Default to bar chart for comparison/analytics
         else:
-            return {"visualise": True, "chart_type": "bar"}
+            return {"visualise": True, "chart_type": "bar", "description": "comparison"}
 
     return {"visualise": False, "chart_type": None}
 
@@ -402,6 +418,82 @@ async def get_templates():
         raise HTTPException(
             status_code=500,
             detail="Error fetching templates"
+        )
+
+
+# ==================== Visualization Endpoints ====================
+
+@app.post("/api/visualize")
+async def visualize_data(sql_query: str, chart_type: str = "line"):
+    """
+    Generate chart data from a SQL query result.
+    Useful for creating custom visualizations from raw SQL queries.
+
+    Args:
+        sql_query: SQL query to execute
+        chart_type: Type of chart ('line', 'bar', 'pie')
+
+    Returns:
+        Chart data in chart.js format
+    """
+    try:
+        if not sql_query or not sql_query.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="SQL query cannot be empty"
+            )
+
+        if chart_type not in ['line', 'bar', 'pie']:
+            raise HTTPException(
+                status_code=400,
+                detail="Chart type must be 'line', 'bar', or 'pie'"
+            )
+
+        logger.info(
+            f"Generating visualization for query with chart type: {chart_type}")
+
+        # Execute the query
+        try:
+            raw_results = await query_engine.database.execute_query(sql_query)
+        except Exception as db_err:
+            logger.error(f"Database query error: {str(db_err)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to execute query: {str(db_err)}"
+            )
+
+        if not raw_results:
+            raise HTTPException(
+                status_code=400,
+                detail="Query returned no results"
+            )
+
+        # Format chart data
+        try:
+            chart_data = query_engine.format_chart_data(
+                raw_results, chart_type=chart_type)
+        except Exception as chart_err:
+            logger.error(f"Chart formatting error: {str(chart_err)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to format chart data: {str(chart_err)}"
+            )
+
+        return {
+            "success": True,
+            "chart_type": chart_type,
+            "chart_data": chart_data,
+            "data_points": len(raw_results),
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in visualization: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error generating visualization"
         )
 
 
